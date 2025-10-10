@@ -1,0 +1,43 @@
+name: Demo Apache + PHP + ngrok
+
+on:
+  workflow_dispatch:  # Executar manualment
+
+jobs:
+  demo-web:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5  # màxim que pot durar el job
+
+    steps:
+      # 1️⃣ Checkout del repositori
+      - uses: actions/checkout@v4
+
+      # 2️⃣ Instal·lar Apache i PHP
+      - name: Install Apache and PHP
+        run: |
+          sudo apt update
+          sudo apt install apache2 php libapache2-mod-php -y
+          sudo mkdir -p /tmp/helloworld
+          # Enllaçar public a apache
+          sudo ln -s $GITHUB_WORKSPACE/public /tmp/helloworld/public
+          sudo sed -i 's/Listen 80/Listen 8000/' /etc/apache2/ports.conf
+          sudo apache2ctl stop
+          sudo /usr/sbin/apache2 -DFOREGROUND -f /etc/apache2/apache2.conf -k start &
+
+      # 3️⃣ Instal·lar ngrok
+      - name: Install ngrok
+        run: |
+          curl -s https://ngrok-agent.s3.amazonaws.com/ngrok.asc | sudo tee /etc/apt/trusted.gpg.d/ngrok.asc >/dev/null
+          sudo apt update && sudo apt install ngrok -y
+          ngrok authtoken ${{ secrets.NGROK_TOKEN }}
+
+      # 4️⃣ Arrencar túnel ngrok
+      - name: Start ngrok tunnel
+        id: ngrok
+        run: |
+          ngrok http 8000 --log=stdout > ngrok.log &
+          sleep 5
+          URL=$(curl --silent http://127.0.0.1:4040/api/tunnels | jq -r '.tunnels[0].public_url')
+          echo "ngrok_url=$URL" >> $GITHUB_OUTPUT
+          echo "Web accessible for 2 minutes at $URL"
+          sleep 120  # Manté la web activa 2 minuts
