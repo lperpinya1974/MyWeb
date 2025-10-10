@@ -27,6 +27,7 @@ jobs:
           curl -sSL https://bin.equinox.io/c/4VmDzA7iaHb/ngrok-stable-linux-amd64.tgz -o ngrok.tgz
           tar -xvzf ngrok.tgz
           sudo mv ngrok /usr/local/bin/
+          chmod +x /usr/local/bin/ngrok
           ngrok version
           ngrok authtoken ${{ secrets.NGROK_TOKEN }}
 
@@ -34,12 +35,13 @@ jobs:
       - name: Start Apache + ngrok tunnel
         run: |
           sudo service apache2 start
-          ngrok http 8000 --log=stdout > ngrok.log &
-          echo "⏳ Esperant 10 segons perquè ngrok arranqui..."
-          sleep 10
-          
-          # Intentar extreure la URL fins que sigui disponible
-          for i in {1..5}; do
+
+          # Llançar ngrok amb nohup perquè continuï en background
+          nohup ngrok http 8000 --log=stdout > ngrok.log 2>&1 &
+          echo "⏳ Esperant ngrok arranqui..."
+
+          # Esperar fins que aparegui la URL
+          for i in {1..10}; do
             URL=$(curl -s http://127.0.0.1:4040/api/tunnels | jq -r '.tunnels[0].public_url')
             if [ ! -z "$URL" ] && [ "$URL" != "null" ]; then
               break
