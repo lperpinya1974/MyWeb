@@ -38,7 +38,7 @@ jobs:
           ngrok http 8000 --log=stdout > ngrok.log &
           sleep 5
           URL=$(curl -s http://127.0.0.1:4040/api/tunnels | jq -r '.tunnels[0].public_url')
-          echo " Web accessible durant 2 minuts a: $URL"
+          echo "🌍 Web accessible durant 2 minuts a: $URL"
           echo "ngrok_url=$URL" >> $GITHUB_OUTPUT
           sleep 120
 
