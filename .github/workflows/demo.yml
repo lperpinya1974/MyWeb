@@ -11,7 +11,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      # 1️⃣ Instal·lar Apache i PHP
+      # 1️ Instal·lar Apache i PHP
       - name: Install Apache and PHP
         run: |
           sudo apt update
@@ -20,7 +20,7 @@ jobs:
           sudo service apache2 restart
           echo "Apache i PHP instal·lats correctament."
 
-      # 2️⃣ Instal·lar ngrok (mètode oficial)
+      # 2️ Instal·lar ngrok (mètode oficial)
       - name: Install ngrok
         run: |
           curl -sSL https://bin.equinox.io/c/4VmDzA7iaHb/ngrok-stable-linux-amd64.tgz -o ngrok.tgz
@@ -29,7 +29,7 @@ jobs:
           ngrok version
           ngrok authtoken ${{ secrets.NGROK_TOKEN }}
 
-      # 3️⃣ Arrencar túnel ngrok
+      # 3 Arrencar túnel ngrok
       - name: Start ngrok tunnel
         id: ngrok
         run: |
@@ -41,6 +41,6 @@ jobs:
           echo "ngrok_url=$URL" >> $GITHUB_OUTPUT
           sleep 120
 
-      # 4️⃣ Mostrar la URL al resum
+      # 4 Mostrar la URL al resum
       - name: Show URL
-        run: echo "🌐 URL pública: ${{ steps.ngrok.outputs.ngrok_url }}"
+        run: echo " URL pública: ${{ steps.ngrok.outputs.ngrok_url }}"
