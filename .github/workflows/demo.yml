@@ -1,43 +1,46 @@
 name: Demo Apache + PHP + ngrok
 
 on:
-  workflow_dispatch:  # Executar manualment
+  workflow_dispatch:
 
 jobs:
   demo-web:
     runs-on: ubuntu-latest
-    timeout-minutes: 5  # màxim que pot durar el job
+    timeout-minutes: 5
 
     steps:
-      # 1️⃣ Checkout del repositori
       - uses: actions/checkout@v4
 
-      # 2️⃣ Instal·lar Apache i PHP
+      # 1️⃣ Instal·lar Apache i PHP
       - name: Install Apache and PHP
         run: |
           sudo apt update
-          sudo apt install apache2 php libapache2-mod-php -y
-          sudo mkdir -p /tmp/helloworld
-          # Enllaçar public a apache
-          sudo ln -s $GITHUB_WORKSPACE/public /tmp/helloworld/public
+          sudo apt install -y apache2 php libapache2-mod-php jq
           sudo sed -i 's/Listen 80/Listen 8000/' /etc/apache2/ports.conf
-          sudo apache2ctl stop
-          sudo /usr/sbin/apache2 -DFOREGROUND -f /etc/apache2/apache2.conf -k start &
+          sudo service apache2 restart
+          echo "Apache i PHP instal·lats correctament."
 
-      # 3️⃣ Instal·lar ngrok
+      # 2️⃣ Instal·lar ngrok (mètode oficial)
       - name: Install ngrok
         run: |
-          curl -s https://ngrok-agent.s3.amazonaws.com/ngrok.asc | sudo tee /etc/apt/trusted.gpg.d/ngrok.asc >/dev/null
-          sudo apt update && sudo apt install ngrok -y
+          curl -sSL https://bin.equinox.io/c/4VmDzA7iaHb/ngrok-stable-linux-amd64.tgz -o ngrok.tgz
+          tar -xvzf ngrok.tgz
+          sudo mv ngrok /usr/local/bin/
+          ngrok version
           ngrok authtoken ${{ secrets.NGROK_TOKEN }}
 
-      # 4️⃣ Arrencar túnel ngrok
+      # 3️⃣ Arrencar túnel ngrok
       - name: Start ngrok tunnel
         id: ngrok
         run: |
+          sudo service apache2 start
           ngrok http 8000 --log=stdout > ngrok.log &
           sleep 5
-          URL=$(curl --silent http://127.0.0.1:4040/api/tunnels | jq -r '.tunnels[0].public_url')
+          URL=$(curl -s http://127.0.0.1:4040/api/tunnels | jq -r '.tunnels[0].public_url')
+          echo "🌍 Web accessible durant 2 minuts a: $URL"
           echo "ngrok_url=$URL" >> $GITHUB_OUTPUT
-          echo "Web accessible for 2 minutes at $URL"
-          sleep 120  # Manté la web activa 2 minuts
+          sleep 120
+
+      # 4️⃣ Mostrar la URL al resum
+      - name: Show URL
+        run: echo "🌐 URL pública: ${{ steps.ngrok.outputs.ngrok_url }}"
