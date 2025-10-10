@@ -35,7 +35,23 @@ jobs:
         run: |
           sudo service apache2 start
           ngrok http 8000 --log=stdout > ngrok.log &
-          sleep 5
-          URL=$(curl -s http://127.0.0.1:4040/api/tunnels | jq -r '.tunnels[0].public_url')
+          echo "⏳ Esperant 10 segons perquè ngrok arranqui..."
+          sleep 10
+          
+          # Intentar extreure la URL fins que sigui disponible
+          for i in {1..5}; do
+            URL=$(curl -s http://127.0.0.1:4040/api/tunnels | jq -r '.tunnels[0].public_url')
+            if [ ! -z "$URL" ] && [ "$URL" != "null" ]; then
+              break
+            fi
+            echo "Esperant ngrok... intent $i"
+            sleep 2
+          done
+
+          if [ -z "$URL" ] || [ "$URL" = "null" ]; then
+            echo "❌ No s'ha pogut obtenir la URL de ngrok"
+            exit 1
+          fi
+
           echo "✅ Web accessible durant 2 minuts a: $URL"
           sleep 120
