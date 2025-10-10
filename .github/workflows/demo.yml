@@ -6,36 +6,5 @@ on:
 jobs:
   demo-web:
     runs-on: ubuntu-latest
-    timeout-minutes: 5
-
     steps:
-      # 1️⃣ Fer checkout del codi
-      - uses: actions/checkout@v4
-
-      # 2️⃣ Instal·lar Apache i PHP
-      - name: Install Apache and PHP
-        run: |
-          sudo apt update
-          sudo apt install -y apache2 php libapache2-mod-php jq
-          sudo sed -i 's/Listen 80/Listen 8000/' /etc/apache2/ports.conf
-          sudo service apache2 restart
-          echo "✅ Apache i PHP instal·lats correctament."
-
-      # 3️⃣ Instal·lar ngrok
-      - name: Install ngrok
-        run: |
-          curl -sSL https://bin.equinox.io/c/4VmDzA7iaHb/ngrok-stable-linux-amd64.tgz -o ngrok.tgz
-          tar -xvzf ngrok.tgz
-          sudo mv ngrok /usr/local/bin/
-          ngrok version
-          ngrok authtoken ${{ secrets.NGROK_TOKEN }}
-
-      # 4️⃣ Arrencar Apache + túnel ngrok i mostrar URL
-      - name: Start Apache + ngrok tunnel
-        run: |
-          sudo service apache2 start
-          ngrok http 8000 --log=stdout > ngrok.log &
-          sleep 5
-          URL=$(curl -s http://127.0.0.1:4040/api/tunnels | jq -r '.tunnels[0].public_url')
-          echo "✅ Web accessible durant 2 minuts a: $URL"
-          sleep 120
+      - run: echo "Hello world"
