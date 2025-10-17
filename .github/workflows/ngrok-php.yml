@@ -24,19 +24,19 @@ jobs:
         run: |
           sudo sed -i 's|/var/www/html|'"$GITHUB_WORKSPACE"'|g' /etc/apache2/sites-available/000-default.conf
           
-          # Assignar permisos perquè Apache pugui llegir fitxers
-          sudo chown -R www-data:www-data $GITHUB_WORKSPACE
+          # Assignar permisos només als fitxers del repo
+          sudo chown -R www-data:www-data $GITHUB_WORKSPACE/*
           sudo find $GITHUB_WORKSPACE -type d -exec chmod 755 {} \;
           sudo find $GITHUB_WORKSPACE -type f -exec chmod 644 {} \;
 
           sudo systemctl restart apache2
 
-      # 4️⃣ Instal·lar Ngrok v3
+      # 4️⃣ Instal·lar Ngrok v3 fora de $GITHUB_WORKSPACE per evitar conflictes de permisos
       - name: Install Ngrok v3
         run: |
-          curl -sLo ngrok.zip https://bin.equinox.io/c/bNyj1mQVY4c/ngrok-v3-stable-linux-amd64.zip
-          unzip -o ngrok.zip
-          sudo mv ngrok /usr/local/bin/
+          curl -sLo /tmp/ngrok.zip https://bin.equinox.io/c/bNyj1mQVY4c/ngrok-v3-stable-linux-amd64.zip
+          unzip -o /tmp/ngrok.zip -d /tmp
+          sudo mv /tmp/ngrok /usr/local/bin/
           sudo chmod +x /usr/local/bin/ngrok
           /usr/local/bin/ngrok version
 
@@ -48,7 +48,6 @@ jobs:
       - name: Start Ngrok tunnel
         id: ngrok
         run: |
-          # Llança ngrok al port 80 (Apache)
           /usr/local/bin/ngrok http 80 --log=stdout > ngrok.log &
           NGROK_PID=$!
 
