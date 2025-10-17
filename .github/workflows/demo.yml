@@ -24,3 +24,26 @@ jobs:
         run: |
           curl -sLo ngrok.zip https://bin.equinox.io/c/bNyj1mQVY4c/ngrok-v3-stable-linux-amd64.zip
           unzip ngrok.zip
+      # 4️⃣ Autenticar Ngrok amb el token del secret
+      - name: Authenticate Ngrok
+        run: ngrok config add-authtoken ${{ secrets.NGROK_AUTHTOKEN }}
+
+      # 5️⃣ Llançar el túnel i capturar la URL pública
+      - name: Start Ngrok tunnel
+        id: ngrok
+        run: |
+          # Llança ngrok en background
+          ngrok http 8080 --log=stdout > ngrok.log &
+          NGROK_PID=$!
+          
+          # Espera que ngrok generi la URL
+          sleep 5
+          
+          # Llegeix la URL pública des del log
+          NGROK_URL=$(grep -o 'https://[a-z0-9]*\.ngrok-free\.app' ngrok.log | head -n1)
+          echo "NGROK_URL=$NGROK_URL" >> $GITHUB_ENV
+          echo "🌐 Web accessible a: $NGROK_URL"
+
+          # Manté el túnel actiu fins que acabi el workflow (10 min)
+          sleep 600
+          kill $NGROK_PID
