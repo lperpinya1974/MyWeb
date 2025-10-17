@@ -19,10 +19,16 @@ jobs:
           sudo apt-get install -y apache2 php libapache2-mod-php
           sudo systemctl enable apache2
 
-      # 3️⃣ Configurar Apache per servir des de la carpeta del repo
-      - name: Configure Apache DocumentRoot
+      # 3️⃣ Configurar Apache DocumentRoot al repo i permisos correctes
+      - name: Configure Apache DocumentRoot and permissions
         run: |
           sudo sed -i 's|/var/www/html|'"$GITHUB_WORKSPACE"'|g' /etc/apache2/sites-available/000-default.conf
+          
+          # Assignar permisos perquè Apache pugui llegir fitxers
+          sudo chown -R www-data:www-data $GITHUB_WORKSPACE
+          sudo find $GITHUB_WORKSPACE -type d -exec chmod 755 {} \;
+          sudo find $GITHUB_WORKSPACE -type f -exec chmod 644 {} \;
+
           sudo systemctl restart apache2
 
       # 4️⃣ Instal·lar Ngrok v3
@@ -38,7 +44,7 @@ jobs:
       - name: Authenticate Ngrok
         run: /usr/local/bin/ngrok config add-authtoken ${{ secrets.NGROK_AUTHTOKEN }}
 
-      # 6️⃣ Llançar el túnel ngrok i capturar la URL pública
+      # 6️⃣ Llançar el túnel ngrok i capturar la URL pública de manera robusta
       - name: Start Ngrok tunnel
         id: ngrok
         run: |
