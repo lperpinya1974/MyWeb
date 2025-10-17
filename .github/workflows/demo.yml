@@ -1,14 +1,10 @@
-name: Docker + Ngrok v3 Demo
+name: Apache + PHP + Ngrok v3 Demo
 
 on:
   workflow_dispatch:
-  push:
-    branches:
-      - main
 
 jobs:
   deploy:
-  if: false
     runs-on: ubuntu-latest
 
     steps:
@@ -16,11 +12,26 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      # 2️⃣ Llançar contenidors amb Docker Compose (plugin integrat)
-      - name: Run Docker containers
-        run: docker compose up -d
+      # 2️⃣ Instal·lar Apache i PHP
+      - name: Install Apache and PHP
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y apache2 php libapache2-mod-php
+          sudo systemctl enable apache2
 
-      # 3️⃣ Instal·lar Ngrok v3
+      # 3️⃣ Configurar Apache DocumentRoot al repo i permisos correctes
+      - name: Configure Apache DocumentRoot and permissions
+        run: |
+          sudo sed -i 's|/var/www/html|'"$GITHUB_WORKSPACE"'|g' /etc/apache2/sites-available/000-default.conf
+          
+          # Assignar permisos perquè Apache pugui llegir fitxers
+          sudo chown -R www-data:www-data $GITHUB_WORKSPACE
+          sudo find $GITHUB_WORKSPACE -type d -exec chmod 755 {} \;
+          sudo find $GITHUB_WORKSPACE -type f -exec chmod 644 {} \;
+
+          sudo systemctl restart apache2
+
+      # 4️⃣ Instal·lar Ngrok v3
       - name: Install Ngrok v3
         run: |
           curl -sLo ngrok.zip https://bin.equinox.io/c/bNyj1mQVY4c/ngrok-v3-stable-linux-amd64.zip
@@ -29,33 +40,44 @@ jobs:
           sudo chmod +x /usr/local/bin/ngrok
           /usr/local/bin/ngrok version
 
-      # 4️⃣ Autenticar Ngrok amb el secret
+      # 5️⃣ Autenticar Ngrok amb el secret
       - name: Authenticate Ngrok
         run: /usr/local/bin/ngrok config add-authtoken ${{ secrets.NGROK_AUTHTOKEN }}
 
-      # 5️⃣ Llançar el túnel ngrok i capturar la URL pública
+      # 6️⃣ Llançar el túnel ngrok i capturar la URL pública de manera robusta
       - name: Start Ngrok tunnel
         id: ngrok
         run: |
-          # Llança ngrok en background
-          /usr/local/bin/ngrok http 8080 --log=stdout > ngrok.log &
+          # Llança ngrok al port 80 (Apache)
+          /usr/local/bin/ngrok http 80 --log=stdout > ngrok.log &
           NGROK_PID=$!
-          
-          # Espera que ngrok arranqui
-          sleep 5
-          
-          # Extreu la URL pública des del endpoint local
-          NGROK_URL=$(curl --silent http://127.0.0.1:4040/api/tunnels | \
-                       grep -oP '"public_url":"\Khttps://[^"]+')
+
+          # Espera i captura la URL de ngrok amb l'API local
+          TIMEOUT=30
+          ELAPSED=0
+          NGROK_URL=""
+          while [ -z "$NGROK_URL" ] && [ $ELAPSED -lt $TIMEOUT ]; do
+            sleep 1
+            NGROK_URL=$(curl --silent http://127.0.0.1:4040/api/tunnels 2>/dev/null | \
+                         grep -oP '"public_url":"\Khttps://[^"]+')
+            ELAPSED=$((ELAPSED+1))
+          done
+
+          if [ -z "$NGROK_URL" ]; then
+            echo "❌ No s'ha pogut obtenir la URL pública de Ngrok."
+            kill $NGROK_PID
+            exit 1
+          fi
+
           echo "NGROK_URL=$NGROK_URL" >> $GITHUB_ENV
           echo "🌐 Web accessible a: $NGROK_URL"
           echo "::notice title=URL pública::$NGROK_URL"
 
-          # Manté el túnel actiu fins que acabi el workflow (10 minuts)
+          # Manté el túnel actiu durant 10 minuts
           sleep 600
           kill $NGROK_PID
 
-      # 6️⃣ Neteja dels contenidors Docker al final
-      - name: Stop Docker containers
+      # 7️⃣ Neteja Apache al final (opcional)
+      - name: Stop Apache
         if: always()
-        run: docker compose down
+        run: sudo systemctl stop apache2
