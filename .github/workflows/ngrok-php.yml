@@ -1,0 +1,77 @@
+name: Apache + PHP + Ngrok v3 Demo
+
+on:
+  workflow_dispatch:
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      # 1️⃣ Checkout del codi
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      # 2️⃣ Instal·lar Apache i PHP
+      - name: Install Apache and PHP
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y apache2 php libapache2-mod-php
+          sudo systemctl enable apache2
+
+      # 3️⃣ Configurar Apache per servir des de la carpeta del repo
+      - name: Configure Apache DocumentRoot
+        run: |
+          sudo sed -i 's|/var/www/html|'"$GITHUB_WORKSPACE"'|g' /etc/apache2/sites-available/000-default.conf
+          sudo systemctl restart apache2
+
+      # 4️⃣ Instal·lar Ngrok v3
+      - name: Install Ngrok v3
+        run: |
+          curl -sLo ngrok.zip https://bin.equinox.io/c/bNyj1mQVY4c/ngrok-v3-stable-linux-amd64.zip
+          unzip -o ngrok.zip
+          sudo mv ngrok /usr/local/bin/
+          sudo chmod +x /usr/local/bin/ngrok
+          /usr/local/bin/ngrok version
+
+      # 5️⃣ Autenticar Ngrok amb el secret
+      - name: Authenticate Ngrok
+        run: /usr/local/bin/ngrok config add-authtoken ${{ secrets.NGROK_AUTHTOKEN }}
+
+      # 6️⃣ Llançar el túnel ngrok i capturar la URL pública
+      - name: Start Ngrok tunnel
+        id: ngrok
+        run: |
+          # Llança ngrok al port 80 (Apache)
+          /usr/local/bin/ngrok http 80 --log=stdout > ngrok.log &
+          NGROK_PID=$!
+
+          # Espera i captura la URL de ngrok amb l'API local
+          TIMEOUT=30
+          ELAPSED=0
+          NGROK_URL=""
+          while [ -z "$NGROK_URL" ] && [ $ELAPSED -lt $TIMEOUT ]; do
+            sleep 1
+            NGROK_URL=$(curl --silent http://127.0.0.1:4040/api/tunnels 2>/dev/null | \
+                         grep -oP '"public_url":"\Khttps://[^"]+')
+            ELAPSED=$((ELAPSED+1))
+          done
+
+          if [ -z "$NGROK_URL" ]; then
+            echo "❌ No s'ha pogut obtenir la URL pública de Ngrok."
+            kill $NGROK_PID
+            exit 1
+          fi
+
+          echo "NGROK_URL=$NGROK_URL" >> $GITHUB_ENV
+          echo "🌐 Web accessible a: $NGROK_URL"
+          echo "::notice title=URL pública::$NGROK_URL"
+
+          # Manté el túnel actiu durant 10 minuts
+          sleep 600
+          kill $NGROK_PID
+
+      # 7️⃣ Neteja Apache al final (opcional)
+      - name: Stop Apache
+        if: always()
+        run: sudo systemctl stop apache2
