@@ -1,64 +1,43 @@
-name: Demo Apache + PHP + ngrok
+nname: CI
 
 on:
   workflow_dispatch:
+  push:
+    branches:
+      - main
 
 jobs:
-  demo-web:
+  deploy:
+    name: Docker container with Ngrok tunnel
     runs-on: ubuntu-latest
-    timeout-minutes: 5
 
     steps:
-      # 1️⃣ Fer checkout del codi
-      - uses: actions/checkout@v4
+      # 1️⃣ Checkout del repositori
+      - name: Checkout repository
+        uses: actions/checkout@v4
 
-      # 2️⃣ Instal·lar Apache i PHP
-      - name: Install Apache and PHP
+      # 2️⃣ Llançar els contenidors amb Docker Compose
+      - name: Run Docker containers
+        run: docker-compose up -d
+
+      # 3️⃣ Crear el túnel amb Ngrok
+      - name: Start Ngrok Tunnel
+        id: ngrok
+        uses: luisboto/ngrok-tunnel-action@v1.3.1
+        with:
+          timeout: 10m               # Durada de la demo
+          port: 8080                 # Port del contenidor web
+          ngrok_authtoken: ${{ secrets.NGROK_AUTHTOKEN }}
+          tunnel_type: http
+          save_url_to_filename: tunnelURL.md
+
+      # 4️⃣ Mostrar la URL pública als logs
+      - name: Show public URL
         run: |
-          sudo apt update
-          sudo apt install -y apache2 php libapache2-mod-php jq
-          sudo sed -i 's/Listen 80/Listen 8000/' /etc/apache2/ports.conf
-          sudo service apache2 restart
-          echo "✅ Apache i PHP instal·lats correctament."
+          URL=$(cat tunnelURL.md)
+          echo "🌐 Web accessible durant 10 minuts a: $URL"
+          echo "::notice title=URL pública::$URL"
 
-      # 3️⃣ Instal·lar ngrok
-      - name: Install ngrok
-        run: |
-          curl -sSL https://bin.equinox.io/c/4VmDzA7iaHb/ngrok-stable-linux-amd64.tgz -o ngrok.tgz
-          tar -xvzf ngrok.tgz
-          sudo mv ngrok /usr/local/bin/
-          chmod +x /usr/local/bin/ngrok
-          ngrok version
-          ngrok authtoken ${{ secrets.NGROK_TOKEN }}
-
-      # 4️⃣ Arrencar Apache + túnel ngrok i mostrar URL
-      - name: Start Apache + ngrok tunnel
-        run: |
-          sudo service apache2 start
-
-          # Llançar ngrok en background i guardar PID
-          ngrok http 8000 --log=stdout > ngrok.log 2>&1 &
-          NGROK_PID=$!
-
-          echo "⏳ Esperant ngrok arranqui..."
-          # Esperar fins que aparegui la URL
-          for i in {1..15}; do
-            URL=$(curl -s http://127.0.0.1:4040/api/tunnels | jq -r '.tunnels[0].public_url')
-            if [ ! -z "$URL" ] && [ "$URL" != "null" ]; then
-              break
-            fi
-            echo "Esperant ngrok... intent $i"
-            sleep 2
-          done
-
-          if [ -z "$URL" ] || [ "$URL" = "null" ]; then
-            echo "❌ No s'ha pogut obtenir la URL de ngrok"
-            kill $NGROK_PID
-            exit 1
-          fi
-
-          echo "✅ Web accessible durant 2 minuts a: $URL"
-          sleep 120
-
-          # Tancar ngrok al final del temps
-          kill $NGROK_PID
+      # 5️⃣ Mantenir el contenidor actiu fins que acabi el túnel
+      - name: Keep containers alive
+        run: sleep 600   # 10 minuts (ha de coincidir amb el timeout de ngrok)
