@@ -15,7 +15,7 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      # 2️⃣ Llançar els contenidors amb Docker Compose (plugin integrat)
+      # 2️⃣ Llançar contenidors amb Docker Compose (plugin integrat)
       - name: Run Docker containers
         run: docker compose up -d
 
@@ -40,20 +40,21 @@ jobs:
           /usr/local/bin/ngrok http 8080 --log=stdout > ngrok.log &
           NGROK_PID=$!
           
-          # Espera que ngrok generi la URL
+          # Espera que ngrok arranqui
           sleep 5
           
-          # Llegeix la URL pública des del log
-          NGROK_URL=$(grep -o 'https://[a-z0-9]*\.ngrok-free\.app' ngrok.log | head -n1)
+          # Extreu la URL pública des del endpoint local
+          NGROK_URL=$(curl --silent http://127.0.0.1:4040/api/tunnels | \
+                       grep -oP '"public_url":"\Khttps://[^"]+')
           echo "NGROK_URL=$NGROK_URL" >> $GITHUB_ENV
           echo "🌐 Web accessible a: $NGROK_URL"
           echo "::notice title=URL pública::$NGROK_URL"
 
-          # Manté el túnel actiu fins que acabi el workflow (10 min)
+          # Manté el túnel actiu fins que acabi el workflow (10 minuts)
           sleep 600
           kill $NGROK_PID
 
-      # 6️⃣ Opcional: netejar els contenidors Docker al final
+      # 6️⃣ Neteja dels contenidors Docker al final
       - name: Stop Docker containers
         if: always()
         run: docker compose down
