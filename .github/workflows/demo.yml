@@ -18,7 +18,7 @@ jobs:
 
       # 2️⃣ Llançar els contenidors amb Docker Compose
       - name: Run Docker containers
-        run: docker-compose up -d
+        run: docker compose up -d
 
       # 3️⃣ Crear el túnel amb Ngrok
       - name: Start Ngrok Tunnel
