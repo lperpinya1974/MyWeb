@@ -6,6 +6,8 @@ on:
 jobs:
   deploy:
     runs-on: ubuntu-latest
+    outputs:
+      public_url: ${{ steps.ngrok.outputs.ngrok_url }}
 
     steps:
       # 1️⃣ Checkout del codi
@@ -25,7 +27,7 @@ jobs:
           # Afegir l'usuari del runner al grup www-data
           sudo usermod -a -G www-data $USER
 
-          # Canviar propietari de tot el workspace al grup www-data
+          # Canviar grup de tot el workspace a www-data
           sudo chgrp -R www-data $GITHUB_WORKSPACE
 
           # Permisos: 775 directoris, 664 fitxers
@@ -79,6 +81,9 @@ jobs:
           echo "NGROK_URL=$NGROK_URL" >> $GITHUB_ENV
           echo "🌐 Web accessible a: $NGROK_URL"
           echo "::notice title=URL pública::$NGROK_URL"
+
+          # Definir output del step perquè aparegui clarament al workflow
+          echo "::set-output name=ngrok_url::$NGROK_URL"
 
           # Manté el túnel actiu durant 10 minuts
           sleep 600
